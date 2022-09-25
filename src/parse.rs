@@ -1,3 +1,5 @@
+use std::collections::HashSet;
+
 use crate::evaluate::{BindingId, BoolExpression, Expression, RealExpression};
 
 use once_cell::sync::Lazy;
@@ -8,6 +10,8 @@ use pest_derive::Parser;
 #[derive(Parser)]
 #[grammar = "grammar.pest"] // relative to project `src`
 struct ExpressionParser;
+
+pub type ParseError = pest::error::Error<Rule>;
 
 impl Expression {
     /// Assume this expression is real-valued.
@@ -26,6 +30,14 @@ impl Expression {
         }
     }
 
+    pub fn parse_variable_names(input: &str) -> Result<HashSet<String>, ParseError> {
+        Ok(ExpressionParser::parse(Rule::variable, input)?
+            .into_iter()
+            .filter(|p| (p.as_rule() == Rule::variable))
+            .map(|p| p.as_str().to_string())
+            .collect())
+    }
+
     /// Parse the expression from `input`.
     ///
     /// `binding_map` determines which variable name maps to each data binding.
@@ -36,7 +48,7 @@ impl Expression {
     pub fn parse(
         input: &str,
         binding_map: &impl Fn(&str) -> BindingId,
-    ) -> Result<Self, pest::error::Error<Rule>> {
+    ) -> Result<Self, ParseError> {
         let pairs = ExpressionParser::parse(Rule::calculation, input)?;
         Ok(climb_recursive(pairs, binding_map))
     }
