@@ -178,4 +178,21 @@ mod tests {
         assert!(vars.contains("y"), "{vars:?}");
         assert!(vars.contains("z99"), "{vars:?}");
     }
+
+    #[test]
+    fn parse_comparisons() {
+        fn binding_map(var_name: &str) -> BindingId {
+            match var_name {
+                "x" => 0,
+                "y" => 1,
+                _ => unreachable!(),
+            }
+        }
+        Expression::parse("x == y", &binding_map).unwrap();
+        Expression::parse("x != y", &binding_map).unwrap();
+        Expression::parse("x > y", &binding_map).unwrap();
+        Expression::parse("x < y", &binding_map).unwrap();
+        Expression::parse("x <= y", &binding_map).unwrap();
+        Expression::parse("x >= y", &binding_map).unwrap();
+    }
 }

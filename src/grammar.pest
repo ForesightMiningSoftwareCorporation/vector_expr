@@ -20,8 +20,8 @@ binary_logic = _{ and | or }
 unary_logic = _{ not }
     not = { "!" }
 
-real_comparison = _{ eq | neq | less | le | greater | ge }
-    eq      = { "=" }
+real_comparison = _{ eq | neq | le | less | ge | greater }
+    eq      = { "==" }
     neq     = { "!=" }
     less    = { "<" }
     le      = { "<=" }
