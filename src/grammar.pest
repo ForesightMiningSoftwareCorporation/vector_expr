@@ -1,0 +1,54 @@
+real_literal = @{ int ~ ("." ~ ASCII_DIGIT*)? ~ (^"e" ~ int)? }
+    int = { ("+" | "-")? ~ ASCII_DIGIT+ }
+
+variable = @{ ASCII_ALPHA ~ ASCII_ALPHANUMERIC* }
+
+binary_real_op = _{ add | subtract | multiply | divide | power }
+    add      = { "+" }
+    subtract = { "-" }
+    multiply = { "*" }
+    divide   = { "/" }
+    power    = { "^" }
+
+unary_real_op = _{ neg }
+    neg = { "-" }
+
+binary_logic = _{ and | or }
+    and = { "&&" }
+    or  = { "||" }
+
+unary_logic = _{ not }
+    not = { "!" }
+
+real_comparison = _{ eq | neq | less | le | greater | ge }
+    eq      = { "=" }
+    neq     = { "!=" }
+    less    = { "<" }
+    le      = { "<=" }
+    greater = { ">" }
+    ge      = { ">=" }
+
+real_expr = { binary_real_op_expr | unary_real_op_expr }
+
+binary_real_op_expr = _{ binary_real_op_term ~ (binary_real_op ~ binary_real_op_term)* }
+binary_real_op_term = _{ "(" ~ real_expr ~ ")" | unary_real_op_expr | real_literal | variable }
+
+unary_real_op_expr = { unary_real_op ~ unary_real_op_term }
+unary_real_op_term = _{ "(" ~ real_expr ~ ")" | binary_real_op_expr | real_literal | variable }
+
+bool_expr = { binary_logic_expr | unary_logic_expr | compare_expr }
+
+binary_logic_expr = _{ binary_logic_term ~ (binary_logic ~ binary_logic_term)* }
+binary_logic_term = _{ "(" ~ bool_expr ~ ")" | unary_logic_expr | compare_expr }
+
+unary_logic_expr = { unary_logic ~ unary_logic_term }
+unary_logic_term = _{ "(" ~ bool_expr ~ ")" | binary_logic_expr | compare_expr }
+
+compare_expr = _{ compare_expr_term ~ real_comparison ~ compare_expr_term }
+compare_expr_term = _{ "(" ~ real_expr ~ ")" | unary_real_op_expr | binary_real_op_expr }
+
+expr = _{ bool_expr | real_expr }
+
+calculation = _{ SOI ~ expr ~ EOI }
+
+WHITESPACE = _{ " " | "\t" }
