@@ -31,7 +31,8 @@ impl Expression {
     }
 
     pub fn parse_variable_names(input: &str) -> Result<HashSet<String>, ParseError> {
-        Ok(ExpressionParser::parse(Rule::variable, input)?
+        Ok(ExpressionParser::parse(Rule::calculation, input)?
+            .flatten()
             .into_iter()
             .filter(|p| (p.as_rule() == Rule::variable))
             .map(|p| p.as_str().to_string())
@@ -164,4 +165,17 @@ fn climb_recursive(input: Pairs<Rule>, binding_map: &impl Fn(&str) -> BindingId)
             x => panic!("Unexpected operator {x:?}"),
         },
     )
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn parse_variable_names() {
+        let vars = Expression::parse_variable_names("x + y + z99").unwrap();
+        assert!(vars.contains("x"), "{vars:?}");
+        assert!(vars.contains("y"), "{vars:?}");
+        assert!(vars.contains("z99"), "{vars:?}");
+    }
 }
