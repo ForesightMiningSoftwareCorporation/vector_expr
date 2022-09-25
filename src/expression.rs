@@ -1,11 +1,12 @@
 /// Top-level parseable calculation.
+#[derive(Clone, Debug)]
 pub enum Expression {
     Boolean(BoolExpression),
     Real(RealExpression),
 }
 
 /// A `bool`-valued expression.
-#[derive(Debug)]
+#[derive(Clone, Debug)]
 pub enum BoolExpression {
     // Binary logic.
     And(Box<BoolExpression>, Box<BoolExpression>),
@@ -24,7 +25,7 @@ pub enum BoolExpression {
 }
 
 /// An `f64`-valued expression.
-#[derive(Debug)]
+#[derive(Clone, Debug)]
 pub enum RealExpression {
     // Binary real ops.
     Add(Box<RealExpression>, Box<RealExpression>),
