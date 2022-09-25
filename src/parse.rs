@@ -1,6 +1,6 @@
 use std::collections::HashSet;
 
-use crate::evaluate::{BindingId, BoolExpression, Expression, RealExpression};
+use crate::expression::{BindingId, BoolExpression, Expression, RealExpression};
 
 use once_cell::sync::Lazy;
 use pest::iterators::{Pair, Pairs};

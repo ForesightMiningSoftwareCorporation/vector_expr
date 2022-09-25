@@ -34,6 +34,7 @@
 //! ```
 
 mod evaluate;
+mod expression;
 mod parse;
 
 /// Uses the [`pest`] parsing expression grammar language.
@@ -44,6 +45,8 @@ mod parse;
 pub mod grammar_doc {}
 
 pub use evaluate::*;
+pub use expression::*;
+pub use parse::ParseError;
 
 /// Pass to `Expression::parse` if the expression has no variables.
 pub fn empty_binding_map(_var_name: &str) -> BindingId {
