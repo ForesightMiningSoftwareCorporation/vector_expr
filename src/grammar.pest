@@ -1,7 +1,14 @@
 real_literal = @{ int ~ ("." ~ ASCII_DIGIT*)? ~ (^"e" ~ int)? }
     int = { ("+" | "-")? ~ ASCII_DIGIT+ }
 
+string_literal = ${ "\"" ~ string_literal_value ~ "\"" }
+    string_literal_value = @{ char* }
+    char = { !illegal ~ ANY }
+    illegal = { "\"" | "\\" }
+
 variable = @{ ASCII_ALPHA ~ ASCII_ALPHANUMERIC* }
+real_variable = ${ variable }
+str_variable = ${ variable }
 
 binary_real_op = _{ add | subtract | multiply | divide | power }
     add      = { "+" }
@@ -20,32 +27,41 @@ binary_logic = _{ and | or }
 unary_logic = _{ not }
     not = { "!" }
 
-real_comparison = _{ eq | neq | le | less | ge | greater }
-    eq      = { "==" }
-    neq     = { "!=" }
-    less    = { "<" }
-    le      = { "<=" }
-    greater = { ">" }
-    ge      = { ">=" }
+real_comparison = _{ real_eq | real_neq | le | less | ge | greater }
+    real_eq  = { "==" }
+    real_neq = { "!=" }
+    less     = { "<" }
+    le       = { "<=" }
+    greater  = { ">" }
+    ge       = { ">=" }
+
+string_comparison = _{ str_eq | str_neq }
+    str_eq  = { "==" }
+    str_neq = { "!=" }
 
 real_expr = { binary_real_op_expr | unary_real_op_expr }
 
+string_expr = { str_variable | string_literal }
+
 binary_real_op_expr = _{ binary_real_op_term ~ (binary_real_op ~ binary_real_op_term)* }
-binary_real_op_term = _{ "(" ~ real_expr ~ ")" | unary_real_op_expr | real_literal | variable }
+binary_real_op_term = _{ "(" ~ real_expr ~ ")" | unary_real_op_expr | real_literal | real_variable }
 
 unary_real_op_expr = { unary_real_op ~ unary_real_op_term }
-unary_real_op_term = _{ "(" ~ real_expr ~ ")" | binary_real_op_expr | real_literal | variable }
+unary_real_op_term = _{ "(" ~ real_expr ~ ")" | binary_real_op_expr | real_literal | real_variable }
 
-bool_expr = { binary_logic_expr | unary_logic_expr | compare_expr }
+bool_expr = { binary_logic_expr | unary_logic_expr | real_compare_expr | string_compare_expr }
 
 binary_logic_expr = _{ binary_logic_term ~ (binary_logic ~ binary_logic_term)* }
-binary_logic_term = _{ "(" ~ bool_expr ~ ")" | unary_logic_expr | compare_expr }
+binary_logic_term = _{ "(" ~ bool_expr ~ ")" | unary_logic_expr | real_compare_expr | string_compare_expr }
 
 unary_logic_expr = { unary_logic ~ unary_logic_term }
-unary_logic_term = _{ "(" ~ bool_expr ~ ")" | binary_logic_expr | compare_expr }
+unary_logic_term = _{ "(" ~ bool_expr ~ ")" | binary_logic_expr | real_compare_expr | string_compare_expr }
 
-compare_expr = _{ compare_expr_term ~ real_comparison ~ compare_expr_term }
-compare_expr_term = _{ "(" ~ real_expr ~ ")" | unary_real_op_expr | binary_real_op_expr }
+real_compare_expr = _{ real_compare_expr_term ~ real_comparison ~ real_compare_expr_term }
+real_compare_expr_term = _{ "(" ~ real_expr ~ ")" | unary_real_op_expr | binary_real_op_expr }
+
+string_compare_expr = _{ string_compare_expr_term ~ string_comparison ~ string_compare_expr_term }
+string_compare_expr_term = _{ string_expr }
 
 expr = _{ bool_expr | real_expr }
 

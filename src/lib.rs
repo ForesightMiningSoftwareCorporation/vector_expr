@@ -21,7 +21,7 @@
 //!         _ => unreachable!(),
 //!     }
 //! }
-//! let parsed = Expression::parse("2 * (foo + bar) * baz", &binding_map).unwrap();
+//! let parsed = Expression::parse("2 * (foo + bar) * baz", binding_map).unwrap();
 //! let real = parsed.unwrap_real();
 //!
 //! let bar = [1.0, 2.0, 3.0];
@@ -67,7 +67,7 @@ mod tests {
                 _ => unreachable!(),
             }
         }
-        let parsed = Expression::parse("2 * (foo + bar) * -baz", &binding_map).unwrap();
+        let parsed = Expression::parse("2 * (foo + bar) * -baz", binding_map).unwrap();
         let real = parsed.unwrap_real();
 
         let bar = [1.0, 2.0, 3.0];
@@ -84,24 +84,24 @@ mod tests {
     fn real_op_precedence() {
         let mut registers = Registers::new(1);
 
-        let parsed = Expression::parse("1 * 2 + 3 * 4", &empty_binding_map).unwrap();
+        let parsed = Expression::parse("1 * 2 + 3 * 4", empty_binding_map).unwrap();
         let real = parsed.unwrap_real();
         let output = real.evaluate(&[], &mut registers);
         assert_eq!(&output, &[14.0]);
 
-        let parsed = Expression::parse("8 / 4 * 3", &empty_binding_map).unwrap();
+        let parsed = Expression::parse("8 / 4 * 3", empty_binding_map).unwrap();
         let real = parsed.unwrap_real();
         let output = real.evaluate(&[], &mut registers);
         assert_eq!(&output, &[6.0]);
 
-        let parsed = Expression::parse("4 ^ 3 ^ 2", &empty_binding_map).unwrap();
+        let parsed = Expression::parse("4 ^ 3 ^ 2", empty_binding_map).unwrap();
         let real = parsed.unwrap_real();
         let output = real.evaluate(&[], &mut registers);
         assert_eq!(&output, &[262144.0]);
     }
 
     #[test]
-    fn bool_expression() {
+    fn bool_expression_with_real_bindings() {
         fn binding_map(var_name: &str) -> BindingId {
             match var_name {
                 "bar" => 0,
@@ -110,7 +110,7 @@ mod tests {
                 _ => unreachable!(),
             }
         }
-        let parsed = Expression::parse("!(bar < foo && bar < baz)", &binding_map).unwrap();
+        let parsed = Expression::parse("!(bar < foo && bar < baz)", binding_map).unwrap();
         let bool = parsed.unwrap_bool();
 
         let bar = [1.0, 6.0, 7.0];
@@ -118,9 +118,43 @@ mod tests {
         let foo = [3.0, 4.0, 9.0];
         let bindings: &[&[f64]] = &[&bar, &baz, &foo];
         let mut registers = Registers::new(3);
-        let output = bool.evaluate(bindings, &mut registers);
+        let output = bool.evaluate(bindings, &[], |_| unreachable!(), &mut registers);
         assert_eq!(&output, &[false, true, false]);
         assert_eq!(registers.num_allocations(), 3);
+    }
+
+    #[test]
+    fn bool_expression_with_real_and_string_bindings() {
+        fn binding_map(var_name: &str) -> BindingId {
+            match var_name {
+                "foo" => 0,
+                "bar" => 0,
+                _ => unreachable!(),
+            }
+        }
+        let parsed = Expression::parse("foo == \"foo_123\" && bar > 2", binding_map).unwrap();
+        let bool = parsed.unwrap_bool();
+
+        fn string_literal_id(value: &str) -> StringId {
+            match value {
+                "foo_123" => 0,
+                _ => unreachable!(),
+            }
+        }
+
+        let foo = [0, 1, 0];
+        let bar = [1.0, 2.0, 3.0];
+        let real_bindings: &[&[f64]] = &[&bar];
+        let string_bindings: &[&[StringId]] = &[&foo];
+        let mut registers = Registers::new(3);
+        let output = bool.evaluate(
+            real_bindings,
+            string_bindings,
+            string_literal_id,
+            &mut registers,
+        );
+        assert_eq!(&output, &[false, false, true]);
+        assert_eq!(registers.num_allocations(), 5);
     }
 
     #[test]
@@ -135,7 +169,7 @@ mod tests {
         }
         let parsed = Expression::parse(
             "foo + bar + baz + foo + bar + baz + foo + bar + baz",
-            &binding_map,
+            binding_map,
         )
         .unwrap();
         let real = parsed.unwrap_real();
@@ -160,7 +194,7 @@ mod tests {
                 var => panic!("Unexpected variable: {var}"),
             }
         }
-        let parsed = Expression::parse("(z + (z^2 - 4*x*y)^0.5) / (2*x)", &binding_map).unwrap();
+        let parsed = Expression::parse("(z + (z^2 - 4*x*y)^0.5) / (2*x)", binding_map).unwrap();
         let real = parsed.unwrap_real();
 
         const LEN: i32 = 10_000_000;

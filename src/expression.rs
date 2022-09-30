@@ -3,6 +3,7 @@
 pub enum Expression {
     Boolean(BoolExpression),
     Real(RealExpression),
+    String(StringExpression),
 }
 
 /// A `bool`-valued expression.
@@ -22,6 +23,10 @@ pub enum BoolExpression {
     Less(Box<RealExpression>, Box<RealExpression>),
     LessEqual(Box<RealExpression>, Box<RealExpression>),
     NotEqual(Box<RealExpression>, Box<RealExpression>),
+
+    // String comparisons.
+    StrEqual(StringExpression, StringExpression),
+    StrNotEqual(StringExpression, StringExpression),
 }
 
 /// An `f64`-valued expression.
@@ -41,6 +46,12 @@ pub enum RealExpression {
     Literal(f64),
 
     // Input variable.
+    Binding(BindingId),
+}
+
+#[derive(Clone, Debug)]
+pub enum StringExpression {
+    Literal(String),
     Binding(BindingId),
 }
 

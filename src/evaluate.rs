@@ -1,76 +1,121 @@
-use crate::{BoolExpression, RealExpression};
+use crate::{BoolExpression, RealExpression, StringExpression};
 
 #[cfg(feature = "rayon")]
 use rayon::prelude::{
     IndexedParallelIterator, IntoParallelRefIterator, ParallelExtend, ParallelIterator,
 };
 
+/// To speed up string comparisons, we use string interning.
+pub type StringId = u64;
+
 impl BoolExpression {
     /// Calculates the `bool`-valued results of the expression component-wise.
-    pub fn evaluate(&self, bindings: &[&[f64]], registers: &mut Registers) -> Vec<bool> {
-        validate_bindings(bindings, registers.register_length);
-        self.evaluate_recursive(bindings, registers)
+    pub fn evaluate(
+        &self,
+        real_bindings: &[&[f64]],
+        string_bindings: &[&[StringId]],
+        mut get_string_literal_id: impl FnMut(&str) -> StringId,
+        registers: &mut Registers,
+    ) -> Vec<bool> {
+        validate_bindings(real_bindings, registers.register_length);
+        self.evaluate_recursive(
+            real_bindings,
+            string_bindings,
+            &mut get_string_literal_id,
+            registers,
+        )
     }
 
-    fn evaluate_recursive(&self, bindings: &[&[f64]], registers: &mut Registers) -> Vec<bool> {
+    fn evaluate_recursive(
+        &self,
+        real_bindings: &[&[f64]],
+        string_bindings: &[&[StringId]],
+        get_string_literal_id: &mut impl FnMut(&str) -> StringId,
+        registers: &mut Registers,
+    ) -> Vec<bool> {
         match self {
             Self::And(lhs, rhs) => evaluate_binary_logic(
                 |lhs, rhs| lhs && rhs,
                 lhs.as_ref(),
                 rhs.as_ref(),
-                bindings,
+                real_bindings,
+                string_bindings,
+                get_string_literal_id,
                 registers,
             ),
-            Self::Equal(lhs, rhs) => evaluate_comparison(
+            Self::Equal(lhs, rhs) => evaluate_real_comparison(
                 |lhs, rhs| lhs == rhs,
                 lhs.as_ref(),
                 rhs.as_ref(),
-                bindings,
+                real_bindings,
                 registers,
             ),
-            Self::Greater(lhs, rhs) => evaluate_comparison(
+            Self::Greater(lhs, rhs) => evaluate_real_comparison(
                 |lhs, rhs| lhs > rhs,
                 lhs.as_ref(),
                 rhs.as_ref(),
-                bindings,
+                real_bindings,
                 registers,
             ),
-            Self::GreaterEqual(lhs, rhs) => evaluate_comparison(
+            Self::GreaterEqual(lhs, rhs) => evaluate_real_comparison(
                 |lhs, rhs| lhs >= rhs,
                 lhs.as_ref(),
                 rhs.as_ref(),
-                bindings,
+                real_bindings,
                 registers,
             ),
-            Self::Less(lhs, rhs) => evaluate_comparison(
+            Self::Less(lhs, rhs) => evaluate_real_comparison(
                 |lhs, rhs| lhs < rhs,
                 lhs.as_ref(),
                 rhs.as_ref(),
-                bindings,
+                real_bindings,
                 registers,
             ),
-            Self::LessEqual(lhs, rhs) => evaluate_comparison(
+            Self::LessEqual(lhs, rhs) => evaluate_real_comparison(
                 |lhs, rhs| lhs <= rhs,
                 lhs.as_ref(),
                 rhs.as_ref(),
-                bindings,
+                real_bindings,
                 registers,
             ),
-            Self::Not(only) => {
-                evaluate_unary_logic(|only| !only, only.as_ref(), bindings, registers)
-            }
-            Self::NotEqual(lhs, rhs) => evaluate_comparison(
+            Self::Not(only) => evaluate_unary_logic(
+                |only| !only,
+                only.as_ref(),
+                real_bindings,
+                string_bindings,
+                get_string_literal_id,
+                registers,
+            ),
+            Self::NotEqual(lhs, rhs) => evaluate_real_comparison(
                 |lhs, rhs| lhs != rhs,
                 lhs.as_ref(),
                 rhs.as_ref(),
-                bindings,
+                real_bindings,
                 registers,
             ),
             Self::Or(lhs, rhs) => evaluate_binary_logic(
                 |lhs, rhs| lhs || rhs,
                 lhs.as_ref(),
                 rhs.as_ref(),
-                bindings,
+                real_bindings,
+                string_bindings,
+                get_string_literal_id,
+                registers,
+            ),
+            Self::StrEqual(lhs, rhs) => evaluate_string_comparison(
+                |lhs, rhs| lhs == rhs,
+                lhs,
+                rhs,
+                string_bindings,
+                get_string_literal_id,
+                registers,
+            ),
+            Self::StrNotEqual(lhs, rhs) => evaluate_string_comparison(
+                |lhs, rhs| lhs != rhs,
+                lhs,
+                rhs,
+                string_bindings,
+                get_string_literal_id,
                 registers,
             ),
         }
@@ -146,7 +191,6 @@ fn validate_bindings(input_bindings: &[&[f64]], expected_length: usize) {
     }
 }
 
-#[inline]
 fn evaluate_binary_real_op(
     op: fn(f64, f64) -> f64,
     lhs: &RealExpression,
@@ -201,7 +245,6 @@ fn evaluate_binary_real_op(
     output
 }
 
-#[inline]
 fn evaluate_unary_real_op(
     op: fn(f64) -> f64,
     only: &RealExpression,
@@ -235,8 +278,7 @@ fn evaluate_unary_real_op(
     output
 }
 
-#[inline]
-fn evaluate_comparison(
+fn evaluate_real_comparison(
     op: fn(f64, f64) -> bool,
     lhs: &RealExpression,
     rhs: &RealExpression,
@@ -290,16 +332,88 @@ fn evaluate_comparison(
     output
 }
 
-#[inline]
+fn evaluate_string_comparison(
+    op: fn(StringId, StringId) -> bool,
+    lhs: &StringExpression,
+    rhs: &StringExpression,
+    bindings: &[&[StringId]],
+    mut get_string_literal_id: impl FnMut(&str) -> StringId,
+    registers: &mut Registers,
+) -> Vec<bool> {
+    let mut lhs_reg = None;
+    let lhs_values = match lhs {
+        StringExpression::Binding(binding) => bindings[*binding],
+        StringExpression::Literal(literal_value) => {
+            let mut reg = registers.allocate_string();
+            let literal_id = get_string_literal_id(literal_value);
+            reg.extend(std::iter::repeat(literal_id).take(registers.register_length));
+            lhs_reg = Some(reg);
+            lhs_reg.as_ref().unwrap()
+        }
+    };
+    let mut rhs_reg = None;
+    let rhs_values = match rhs {
+        StringExpression::Binding(binding) => bindings[*binding],
+        StringExpression::Literal(literal_value) => {
+            let mut reg = registers.allocate_string();
+            let literal_id = get_string_literal_id(literal_value);
+            reg.extend(std::iter::repeat(literal_id).take(registers.register_length));
+            rhs_reg = Some(reg);
+            rhs_reg.as_ref().unwrap()
+        }
+    };
+    // Allocate this output register as lazily as possible.
+    let mut output = registers.allocate_bool();
+
+    #[cfg(feature = "rayon")]
+    {
+        output.par_extend(
+            lhs_values
+                .par_iter()
+                .zip(rhs_values.par_iter())
+                .map(|(lhs, rhs)| op(*lhs, *rhs)),
+        );
+    }
+    #[cfg(not(feature = "rayon"))]
+    {
+        output.extend(
+            lhs_values
+                .iter()
+                .zip(rhs_values.iter())
+                .map(|(lhs, rhs)| op(*lhs, *rhs)),
+        );
+    }
+
+    if let Some(r) = lhs_reg {
+        registers.recycle_string(r);
+    }
+    if let Some(r) = rhs_reg {
+        registers.recycle_string(r);
+    }
+    output
+}
+
 fn evaluate_binary_logic(
     op: fn(bool, bool) -> bool,
     lhs: &BoolExpression,
     rhs: &BoolExpression,
-    bindings: &[&[f64]],
+    real_bindings: &[&[f64]],
+    string_bindings: &[&[StringId]],
+    get_string_literal_id: &mut impl FnMut(&str) -> StringId,
     registers: &mut Registers,
 ) -> Vec<bool> {
-    let lhs_values = lhs.evaluate_recursive(bindings, registers);
-    let rhs_values = rhs.evaluate_recursive(bindings, registers);
+    let lhs_values = lhs.evaluate_recursive(
+        real_bindings,
+        string_bindings,
+        get_string_literal_id,
+        registers,
+    );
+    let rhs_values = rhs.evaluate_recursive(
+        real_bindings,
+        string_bindings,
+        get_string_literal_id,
+        registers,
+    );
 
     // Allocate this output register as lazily as possible.
     let mut output = registers.allocate_bool();
@@ -328,14 +442,20 @@ fn evaluate_binary_logic(
     output
 }
 
-#[inline]
 fn evaluate_unary_logic(
     op: fn(bool) -> bool,
     only: &BoolExpression,
-    bindings: &[&[f64]],
+    real_bindings: &[&[f64]],
+    string_bindings: &[&[StringId]],
+    get_string_literal_id: &mut impl FnMut(&str) -> StringId,
     registers: &mut Registers,
 ) -> Vec<bool> {
-    let only_values = only.evaluate_recursive(bindings, registers);
+    let only_values = only.evaluate_recursive(
+        real_bindings,
+        string_bindings,
+        get_string_literal_id,
+        registers,
+    );
 
     // Allocate this output register as lazily as possible.
     let mut output = registers.allocate_bool();
@@ -362,6 +482,7 @@ pub struct Registers {
     num_allocations: usize,
     real_registers: Vec<Vec<f64>>,
     bool_registers: Vec<Vec<bool>>,
+    string_registers: Vec<Vec<StringId>>,
     register_length: usize,
 }
 
@@ -371,6 +492,7 @@ impl Registers {
             num_allocations: 0,
             real_registers: vec![],
             bool_registers: vec![],
+            string_registers: vec![],
             register_length,
         }
     }
@@ -385,6 +507,11 @@ impl Registers {
         self.bool_registers.push(used);
     }
 
+    fn recycle_string(&mut self, mut used: Vec<StringId>) {
+        used.clear();
+        self.string_registers.push(used);
+    }
+
     fn allocate_real(&mut self) -> Vec<f64> {
         self.real_registers.pop().unwrap_or_else(|| {
             self.num_allocations += 1;
@@ -394,6 +521,13 @@ impl Registers {
 
     fn allocate_bool(&mut self) -> Vec<bool> {
         self.bool_registers.pop().unwrap_or_else(|| {
+            self.num_allocations += 1;
+            Vec::with_capacity(self.register_length)
+        })
+    }
+
+    fn allocate_string(&mut self) -> Vec<StringId> {
+        self.string_registers.pop().unwrap_or_else(|| {
             self.num_allocations += 1;
             Vec::with_capacity(self.register_length)
         })

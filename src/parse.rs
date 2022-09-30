@@ -1,6 +1,7 @@
 use std::collections::HashSet;
 
 use crate::expression::{BindingId, BoolExpression, Expression, RealExpression};
+use crate::StringExpression;
 
 use once_cell::sync::Lazy;
 use pest::iterators::{Pair, Pairs};
@@ -19,6 +20,14 @@ impl Expression {
         match self {
             Self::Real(r) => r,
             _ => panic!("Expected Real"),
+        }
+    }
+
+    /// Assume this expression is string-valued.
+    pub fn unwrap_string(self) -> StringExpression {
+        match self {
+            Self::String(s) => s,
+            _ => panic!("Expected String"),
         }
     }
 
@@ -46,12 +55,9 @@ impl Expression {
     /// [`BindingId`]s in the [`Expression`] syntax tree. This allows the
     /// [`Expression`] to be efficiently reused with many different data
     /// bindings.
-    pub fn parse(
-        input: &str,
-        binding_map: &impl Fn(&str) -> BindingId,
-    ) -> Result<Self, ParseError> {
+    pub fn parse(input: &str, binding_map: impl Fn(&str) -> BindingId) -> Result<Self, ParseError> {
         let pairs = ExpressionParser::parse(Rule::calculation, input)?;
-        Ok(climb_recursive(pairs, binding_map))
+        Ok(climb_recursive(pairs, &binding_map))
     }
 }
 
@@ -61,8 +67,10 @@ static PRECEDENCE_CLIMBER: Lazy<PrecClimber<Rule>> = Lazy::new(|| {
 
     PrecClimber::new(vec![
         Operator::new(and, Left) | Operator::new(or, Left),
-        Operator::new(eq, Left)
-            | Operator::new(neq, Left)
+        Operator::new(str_eq, Left)
+            | Operator::new(str_neq, Left)
+            | Operator::new(real_eq, Left)
+            | Operator::new(real_neq, Left)
             | Operator::new(less, Left)
             | Operator::new(le, Left)
             | Operator::new(greater, Left)
@@ -79,10 +87,19 @@ fn climb_recursive(input: Pairs<Rule>, binding_map: &impl Fn(&str) -> BindingId)
         |pair: Pair<Rule>| match pair.as_rule() {
             Rule::bool_expr => climb_recursive(pair.into_inner(), binding_map),
             Rule::real_expr => climb_recursive(pair.into_inner(), binding_map),
+            Rule::string_expr => climb_recursive(pair.into_inner(), binding_map),
             Rule::real_literal => {
                 let literal_str = pair.as_str();
                 if let Ok(value) = literal_str.parse::<f64>() {
                     return Expression::Real(RealExpression::Literal(value));
+                }
+                panic!("Unexpected literal: {}", literal_str)
+            }
+            Rule::string_literal => climb_recursive(pair.into_inner(), binding_map),
+            Rule::string_literal_value => {
+                let literal_str = pair.as_str();
+                if let Ok(value) = literal_str.parse::<String>() {
+                    return Expression::String(StringExpression::Literal(value));
                 }
                 panic!("Unexpected literal: {}", literal_str)
             }
@@ -106,7 +123,12 @@ fn climb_recursive(input: Pairs<Rule>, binding_map: &impl Fn(&str) -> BindingId)
                     x => panic!("Unexpected unary logic operator: {x:?}"),
                 }
             }
-            Rule::variable => Expression::Real(RealExpression::Binding(binding_map(pair.as_str()))),
+            Rule::real_variable => {
+                Expression::Real(RealExpression::Binding(binding_map(pair.as_str())))
+            }
+            Rule::str_variable => {
+                Expression::String(StringExpression::Binding(binding_map(pair.as_str())))
+            }
             x => panic!("Unexpected primary rule {x:?}"),
         },
         |lhs: Expression, op: Pair<Rule>, rhs: Expression| match op.as_rule() {
@@ -130,13 +152,21 @@ fn climb_recursive(input: Pairs<Rule>, binding_map: &impl Fn(&str) -> BindingId)
                 Box::new(lhs.unwrap_real()),
                 Box::new(rhs.unwrap_real()),
             )),
-            Rule::eq => Expression::Boolean(BoolExpression::Equal(
+            Rule::real_eq => Expression::Boolean(BoolExpression::Equal(
                 Box::new(lhs.unwrap_real()),
                 Box::new(rhs.unwrap_real()),
             )),
-            Rule::neq => Expression::Boolean(BoolExpression::NotEqual(
+            Rule::real_neq => Expression::Boolean(BoolExpression::NotEqual(
                 Box::new(lhs.unwrap_real()),
                 Box::new(rhs.unwrap_real()),
+            )),
+            Rule::str_eq => Expression::Boolean(BoolExpression::StrEqual(
+                lhs.unwrap_string(),
+                rhs.unwrap_string(),
+            )),
+            Rule::str_neq => Expression::Boolean(BoolExpression::StrNotEqual(
+                lhs.unwrap_string(),
+                rhs.unwrap_string(),
             )),
             Rule::less => Expression::Boolean(BoolExpression::Less(
                 Box::new(lhs.unwrap_real()),
