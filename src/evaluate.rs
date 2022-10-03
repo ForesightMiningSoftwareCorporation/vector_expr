@@ -10,10 +10,10 @@ pub type StringId = u64;
 
 impl BoolExpression {
     /// Calculates the `bool`-valued results of the expression component-wise.
-    pub fn evaluate(
+    pub fn evaluate<R: AsRef<[f64]>, S: AsRef<[StringId]>>(
         &self,
-        real_bindings: &[&[f64]],
-        string_bindings: &[&[StringId]],
+        real_bindings: &[R],
+        string_bindings: &[S],
         mut get_string_literal_id: impl FnMut(&str) -> StringId,
         registers: &mut Registers,
     ) -> Vec<bool> {
@@ -26,10 +26,10 @@ impl BoolExpression {
         )
     }
 
-    fn evaluate_recursive(
+    fn evaluate_recursive<R: AsRef<[f64]>, S: AsRef<[StringId]>>(
         &self,
-        real_bindings: &[&[f64]],
-        string_bindings: &[&[StringId]],
+        real_bindings: &[R],
+        string_bindings: &[S],
         get_string_literal_id: &mut impl FnMut(&str) -> StringId,
         registers: &mut Registers,
     ) -> Vec<bool> {
@@ -123,13 +123,21 @@ impl BoolExpression {
 }
 
 impl RealExpression {
+    pub fn evaluate_without_vars(&self, registers: &mut Registers) -> Vec<f64> {
+        self.evaluate::<[_; 0]>(&[], registers)
+    }
+
     /// Calculates the real-valued results of the expression component-wise.
-    pub fn evaluate(&self, bindings: &[&[f64]], registers: &mut Registers) -> Vec<f64> {
+    pub fn evaluate<R: AsRef<[f64]>>(&self, bindings: &[R], registers: &mut Registers) -> Vec<f64> {
         validate_bindings(bindings, registers.register_length);
         self.evaluate_recursive(bindings, registers)
     }
 
-    fn evaluate_recursive(&self, bindings: &[&[f64]], registers: &mut Registers) -> Vec<f64> {
+    fn evaluate_recursive<R: AsRef<[f64]>>(
+        &self,
+        bindings: &[R],
+        registers: &mut Registers,
+    ) -> Vec<f64> {
         match self {
             Self::Add(lhs, rhs) => evaluate_binary_real_op(
                 |lhs, rhs| lhs + rhs,
@@ -142,7 +150,7 @@ impl RealExpression {
             // literally the identity map from one of the bindings.
             Self::Binding(binding) => {
                 let mut output = registers.allocate_real();
-                output.extend_from_slice(bindings[*binding]);
+                output.extend_from_slice(bindings[*binding].as_ref());
                 output
             }
             Self::Div(lhs, rhs) => evaluate_binary_real_op(
@@ -185,31 +193,31 @@ impl RealExpression {
     }
 }
 
-fn validate_bindings(input_bindings: &[&[f64]], expected_length: usize) {
+fn validate_bindings<R: AsRef<[f64]>>(input_bindings: &[R], expected_length: usize) {
     for b in input_bindings.iter() {
-        assert_eq!(b.len(), expected_length);
+        assert_eq!(b.as_ref().len(), expected_length);
     }
 }
 
-fn evaluate_binary_real_op(
+fn evaluate_binary_real_op<R: AsRef<[f64]>>(
     op: fn(f64, f64) -> f64,
     lhs: &RealExpression,
     rhs: &RealExpression,
-    bindings: &[&[f64]],
+    bindings: &[R],
     registers: &mut Registers,
 ) -> Vec<f64> {
     // Before doing recursive evaluation, we check first if we already have
     // input values in our bindings. This avoids unnecessary copies.
     let mut lhs_reg = None;
     let lhs_values = if let RealExpression::Binding(binding) = lhs {
-        bindings[*binding]
+        bindings[*binding].as_ref()
     } else {
         lhs_reg = Some(lhs.evaluate_recursive(bindings, registers));
         lhs_reg.as_ref().unwrap()
     };
     let mut rhs_reg = None;
     let rhs_values = if let RealExpression::Binding(binding) = rhs {
-        bindings[*binding]
+        bindings[*binding].as_ref()
     } else {
         rhs_reg = Some(rhs.evaluate_recursive(bindings, registers));
         rhs_reg.as_ref().unwrap()
@@ -245,17 +253,17 @@ fn evaluate_binary_real_op(
     output
 }
 
-fn evaluate_unary_real_op(
+fn evaluate_unary_real_op<R: AsRef<[f64]>>(
     op: fn(f64) -> f64,
     only: &RealExpression,
-    bindings: &[&[f64]],
+    bindings: &[R],
     registers: &mut Registers,
 ) -> Vec<f64> {
     // Before doing recursive evaluation, we check first if we already have
     // input values in our bindings. This avoids unnecessary copies.
     let mut only_reg = None;
     let only_values = if let RealExpression::Binding(binding) = only {
-        bindings[*binding]
+        bindings[*binding].as_ref()
     } else {
         only_reg = Some(only.evaluate_recursive(bindings, registers));
         only_reg.as_ref().unwrap()
@@ -278,25 +286,25 @@ fn evaluate_unary_real_op(
     output
 }
 
-fn evaluate_real_comparison(
+fn evaluate_real_comparison<R: AsRef<[f64]>>(
     op: fn(f64, f64) -> bool,
     lhs: &RealExpression,
     rhs: &RealExpression,
-    bindings: &[&[f64]],
+    bindings: &[R],
     registers: &mut Registers,
 ) -> Vec<bool> {
     // Before doing recursive evaluation, we check first if we already have
     // input values in our bindings. This avoids unnecessary copies.
     let mut lhs_reg = None;
     let lhs_values = if let RealExpression::Binding(binding) = lhs {
-        bindings[*binding]
+        bindings[*binding].as_ref()
     } else {
         lhs_reg = Some(lhs.evaluate_recursive(bindings, registers));
         lhs_reg.as_ref().unwrap()
     };
     let mut rhs_reg = None;
     let rhs_values = if let RealExpression::Binding(binding) = rhs {
-        bindings[*binding]
+        bindings[*binding].as_ref()
     } else {
         rhs_reg = Some(rhs.evaluate_recursive(bindings, registers));
         rhs_reg.as_ref().unwrap()
@@ -332,17 +340,17 @@ fn evaluate_real_comparison(
     output
 }
 
-fn evaluate_string_comparison(
+fn evaluate_string_comparison<S: AsRef<[StringId]>>(
     op: fn(StringId, StringId) -> bool,
     lhs: &StringExpression,
     rhs: &StringExpression,
-    bindings: &[&[StringId]],
+    bindings: &[S],
     mut get_string_literal_id: impl FnMut(&str) -> StringId,
     registers: &mut Registers,
 ) -> Vec<bool> {
     let mut lhs_reg = None;
     let lhs_values = match lhs {
-        StringExpression::Binding(binding) => bindings[*binding],
+        StringExpression::Binding(binding) => bindings[*binding].as_ref(),
         StringExpression::Literal(literal_value) => {
             let mut reg = registers.allocate_string();
             let literal_id = get_string_literal_id(literal_value);
@@ -353,7 +361,7 @@ fn evaluate_string_comparison(
     };
     let mut rhs_reg = None;
     let rhs_values = match rhs {
-        StringExpression::Binding(binding) => bindings[*binding],
+        StringExpression::Binding(binding) => bindings[*binding].as_ref(),
         StringExpression::Literal(literal_value) => {
             let mut reg = registers.allocate_string();
             let literal_id = get_string_literal_id(literal_value);
@@ -393,12 +401,12 @@ fn evaluate_string_comparison(
     output
 }
 
-fn evaluate_binary_logic(
+fn evaluate_binary_logic<R: AsRef<[f64]>, S: AsRef<[StringId]>>(
     op: fn(bool, bool) -> bool,
     lhs: &BoolExpression,
     rhs: &BoolExpression,
-    real_bindings: &[&[f64]],
-    string_bindings: &[&[StringId]],
+    real_bindings: &[R],
+    string_bindings: &[S],
     get_string_literal_id: &mut impl FnMut(&str) -> StringId,
     registers: &mut Registers,
 ) -> Vec<bool> {
@@ -442,11 +450,11 @@ fn evaluate_binary_logic(
     output
 }
 
-fn evaluate_unary_logic(
+fn evaluate_unary_logic<R: AsRef<[f64]>, S: AsRef<[StringId]>>(
     op: fn(bool) -> bool,
     only: &BoolExpression,
-    real_bindings: &[&[f64]],
-    string_bindings: &[&[StringId]],
+    real_bindings: &[R],
+    string_bindings: &[S],
     get_string_literal_id: &mut impl FnMut(&str) -> StringId,
     registers: &mut Registers,
 ) -> Vec<bool> {

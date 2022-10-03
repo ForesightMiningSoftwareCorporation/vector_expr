@@ -73,7 +73,7 @@ mod tests {
         let bar = [1.0, 2.0, 3.0];
         let baz = [4.0, 5.0, 6.0];
         let foo = [7.0, 8.0, 9.0];
-        let bindings: &[&[f64]] = &[&bar, &baz, &foo];
+        let bindings = &[bar, baz, foo];
         let mut registers = Registers::new(3);
         let output = real.evaluate(bindings, &mut registers);
         assert_eq!(&output, &[-64.0, -100.0, -144.0]);
@@ -86,17 +86,17 @@ mod tests {
 
         let parsed = Expression::parse("1 * 2 + 3 * 4", empty_binding_map).unwrap();
         let real = parsed.unwrap_real();
-        let output = real.evaluate(&[], &mut registers);
+        let output = real.evaluate_without_vars(&mut registers);
         assert_eq!(&output, &[14.0]);
 
         let parsed = Expression::parse("8 / 4 * 3", empty_binding_map).unwrap();
         let real = parsed.unwrap_real();
-        let output = real.evaluate(&[], &mut registers);
+        let output = real.evaluate_without_vars(&mut registers);
         assert_eq!(&output, &[6.0]);
 
         let parsed = Expression::parse("4 ^ 3 ^ 2", empty_binding_map).unwrap();
         let real = parsed.unwrap_real();
-        let output = real.evaluate(&[], &mut registers);
+        let output = real.evaluate_without_vars(&mut registers);
         assert_eq!(&output, &[262144.0]);
     }
 
@@ -116,9 +116,9 @@ mod tests {
         let bar = [1.0, 6.0, 7.0];
         let baz = [2.0, 5.0, 8.0];
         let foo = [3.0, 4.0, 9.0];
-        let bindings: &[&[f64]] = &[&bar, &baz, &foo];
+        let bindings = &[bar, baz, foo];
         let mut registers = Registers::new(3);
-        let output = bool.evaluate(bindings, &[], |_| unreachable!(), &mut registers);
+        let output = bool.evaluate::<_, [_; 0]>(bindings, &[], |_| unreachable!(), &mut registers);
         assert_eq!(&output, &[false, true, false]);
         assert_eq!(registers.num_allocations(), 3);
     }
@@ -144,8 +144,8 @@ mod tests {
 
         let foo = [0, 1, 0];
         let bar = [1.0, 2.0, 3.0];
-        let real_bindings: &[&[f64]] = &[&bar];
-        let string_bindings: &[&[StringId]] = &[&foo];
+        let real_bindings = &[bar];
+        let string_bindings = &[foo];
         let mut registers = Registers::new(3);
         let output = bool.evaluate(
             real_bindings,
@@ -177,7 +177,7 @@ mod tests {
         let bar = [1.0, 2.0, 3.0];
         let baz = [4.0, 5.0, 6.0];
         let foo = [7.0, 8.0, 9.0];
-        let bindings: &[&[f64]] = &[&bar, &baz, &foo];
+        let bindings = &[bar, baz, foo];
         let mut registers = Registers::new(3);
         let output = real.evaluate(bindings, &mut registers);
         assert_eq!(&output, &[36.0, 45.0, 54.0]);
@@ -201,7 +201,7 @@ mod tests {
         let x: Vec<_> = (0..LEN).map(|i| i as f64).collect();
         let y: Vec<_> = (0..LEN).map(|i| (LEN - i) as f64).collect();
         let z: Vec<_> = (0..LEN).map(|i| ((LEN / 2) - i) as f64).collect();
-        let bindings: &[&[f64]] = &[&x, &y, &z];
+        let bindings = &[x, y, z];
 
         let mut registers = Registers::new(LEN as usize);
         let start = std::time::Instant::now();
