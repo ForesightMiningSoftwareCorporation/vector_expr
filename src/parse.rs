@@ -39,11 +39,20 @@ impl Expression {
         }
     }
 
-    pub fn parse_variable_names(input: &str) -> Result<HashSet<String>, ParseError> {
+    pub fn parse_real_variable_names(input: &str) -> Result<HashSet<String>, ParseError> {
         Ok(ExpressionParser::parse(Rule::calculation, input)?
             .flatten()
             .into_iter()
-            .filter(|p| (p.as_rule() == Rule::variable))
+            .filter(|p| (p.as_rule() == Rule::real_variable))
+            .map(|p| p.as_str().to_string())
+            .collect())
+    }
+
+    pub fn parse_string_variable_names(input: &str) -> Result<HashSet<String>, ParseError> {
+        Ok(ExpressionParser::parse(Rule::calculation, input)?
+            .flatten()
+            .into_iter()
+            .filter(|p| (p.as_rule() == Rule::str_variable))
             .map(|p| p.as_str().to_string())
             .collect())
     }
@@ -203,11 +212,13 @@ mod tests {
 
     #[test]
     fn parse_variable_names() {
-        let vars = Expression::parse_variable_names("v1_dest + x + y + z99").unwrap();
+        let vars = Expression::parse_real_variable_names("v1_dest + x + y + z99").unwrap();
         assert!(vars.contains("x"), "{vars:?}");
         assert!(vars.contains("y"), "{vars:?}");
         assert!(vars.contains("z99"), "{vars:?}");
         assert!(vars.contains("v1_dest"), "{vars:?}");
+        let vars = Expression::parse_string_variable_names("x == \"W\"").unwrap();
+        assert!(vars.contains("x"), "{vars:?}");
     }
 
     #[test]
