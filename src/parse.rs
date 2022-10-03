@@ -203,10 +203,11 @@ mod tests {
 
     #[test]
     fn parse_variable_names() {
-        let vars = Expression::parse_variable_names("x + y + z99").unwrap();
+        let vars = Expression::parse_variable_names("v1_dest + x + y + z99").unwrap();
         assert!(vars.contains("x"), "{vars:?}");
         assert!(vars.contains("y"), "{vars:?}");
         assert!(vars.contains("z99"), "{vars:?}");
+        assert!(vars.contains("v1_dest"), "{vars:?}");
     }
 
     #[test]

@@ -6,7 +6,9 @@ string_literal = ${ "\"" ~ string_literal_value ~ "\"" }
     char = { !illegal ~ ANY }
     illegal = { "\"" | "\\" }
 
-variable = @{ ASCII_ALPHA ~ ASCII_ALPHANUMERIC* }
+variable = @{ leading ~ following* }
+    leading = _{ ASCII_ALPHA | "_" }
+    following = _{ ASCII_ALPHANUMERIC | "_" }
 real_variable = ${ variable }
 str_variable = ${ variable }
 
