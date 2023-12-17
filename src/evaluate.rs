@@ -18,6 +18,7 @@ impl BoolExpression {
         registers: &mut Registers,
     ) -> Vec<bool> {
         validate_bindings(real_bindings, registers.register_length);
+        validate_bindings(string_bindings, registers.register_length);
         self.evaluate_recursive(
             real_bindings,
             string_bindings,
@@ -193,7 +194,7 @@ impl RealExpression {
     }
 }
 
-fn validate_bindings<R: AsRef<[f64]>>(input_bindings: &[R], expected_length: usize) {
+fn validate_bindings<T, B: AsRef<[T]>>(input_bindings: &[B], expected_length: usize) {
     for b in input_bindings.iter() {
         assert_eq!(b.as_ref().len(), expected_length);
     }
