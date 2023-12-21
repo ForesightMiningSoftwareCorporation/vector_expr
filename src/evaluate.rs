@@ -6,7 +6,7 @@ use rayon::prelude::{
 };
 
 /// To speed up string comparisons, we use string interning.
-pub type StringId = u64;
+pub type StringId = u32;
 
 impl BoolExpression {
     /// Calculates the `bool`-valued results of the expression component-wise.
