@@ -202,9 +202,9 @@ mod tests {
         let real = parsed.unwrap_real();
 
         const LEN: i32 = 10_000_000;
-        let x: Vec<_> = (0..LEN).map(|i| i as f64).collect();
-        let y: Vec<_> = (0..LEN).map(|i| (LEN - i) as f64).collect();
-        let z: Vec<_> = (0..LEN).map(|i| ((LEN / 2) - i) as f64).collect();
+        let x: Vec<_> = (0..LEN).map(|i| i as f32).collect();
+        let y: Vec<_> = (0..LEN).map(|i| (LEN - i) as f32).collect();
+        let z: Vec<_> = (0..LEN).map(|i| ((LEN / 2) - i) as f32).collect();
         let bindings = &[x, y, z];
 
         let mut registers = Registers::new(LEN as usize);
