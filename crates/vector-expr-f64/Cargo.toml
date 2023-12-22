@@ -1,7 +1,7 @@
 [package]
 name = "vector-expr-f64"
 authors = ["Duncan Fairbanks <duncan.fairbanks@foresightmining.com>"]
-version = "0.2.0"
+version = "0.3.0"
 edition = "2021"
 description = "Vectorized expression parser and evaluator"
 license = "MIT OR Apache-2.0"
