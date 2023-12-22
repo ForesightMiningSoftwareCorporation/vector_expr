@@ -1,18 +1,13 @@
-[package]
-name = "vector-expr"
-authors = ["Duncan Fairbanks <duncan.fairbanks@foresightmining.com>"]
-version = "0.2.0"
-edition = "2021"
-description = "Vectorized expression parser and evaluator"
-license = "MIT OR Apache-2.0"
-repository = "https://github.com/ForesightMiningSoftwareCorporation/vector_expr"
-readme = "README.md"
+[workspace]
+members = ["crates/vector-expr", "crates/vector-expr-f64"]
+resolver = "2"
 
-# See more keys and their definitions at https://doc.rust-lang.org/cargo/reference/manifest.html
+[patch.crates-io]
+vector-expr = { path = "crates/vector-expr" }
+vector-expr-f64 = { path = "crates/vector-expr-f64" }
 
-[dependencies]
+[workspace.dependencies]
 once_cell = "1.19.0"
 pest = "2.7.5"
 pest_derive = "2.7.5"
-
-rayon = { version = "1", optional = true }
+rayon = "1"

@@ -1,4 +1,5 @@
 use crate::expression::{BindingId, BoolExpression, Expression, RealExpression};
+use crate::real::Real;
 use crate::StringExpression;
 use once_cell::sync::Lazy;
 use pest::iterators::Pairs;
@@ -8,7 +9,7 @@ use pest_derive::Parser;
 use std::collections::HashSet;
 
 #[derive(Parser)]
-#[grammar = "grammar.pest"] // relative to project `src`
+#[grammar = "../../src/grammar.pest"] // relative to workspace `src`
 struct ExpressionParser;
 
 // Boxed because error is much larger than Ok variant in most results.
@@ -97,7 +98,7 @@ fn parse_recursive(pairs: Pairs<Rule>, binding_map: &impl Fn(&str) -> BindingId)
             Rule::string_expr => parse_recursive(pair.into_inner(), binding_map),
             Rule::real_literal => {
                 let literal_str = pair.as_str();
-                if let Ok(value) = literal_str.parse::<f64>() {
+                if let Ok(value) = literal_str.parse::<Real>() {
                     return Expression::Real(RealExpression::Literal(value));
                 }
                 panic!("Unexpected literal: {}", literal_str)

@@ -1,3 +1,5 @@
+use crate::real::Real;
+
 /// Top-level parseable calculation.
 #[derive(Clone, Debug)]
 pub enum Expression {
@@ -29,7 +31,7 @@ pub enum BoolExpression {
     StrNotEqual(StringExpression, StringExpression),
 }
 
-/// An `f64`-valued expression.
+/// A `Real`-valued expression.
 #[derive(Clone, Debug)]
 pub enum RealExpression {
     // Binary real ops.
@@ -43,7 +45,7 @@ pub enum RealExpression {
     Neg(Box<RealExpression>),
 
     // Constant.
-    Literal(f64),
+    Literal(Real),
 
     // Input variable.
     Binding(BindingId),
@@ -55,5 +57,6 @@ pub enum StringExpression {
     Binding(BindingId),
 }
 
-/// Index into the `&[&[f64]]` bindings passed to expression evaluation.
+/// Index into the `&[&[Real]]` or `&[&[StringId]]` bindings passed to
+/// expression evaluation.
 pub type BindingId = usize;

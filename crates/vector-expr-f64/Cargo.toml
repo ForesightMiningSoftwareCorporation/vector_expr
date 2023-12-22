@@ -1,0 +1,25 @@
+[package]
+name = "vector-expr-f64"
+authors = ["Duncan Fairbanks <duncan.fairbanks@foresightmining.com>"]
+version = "0.2.0"
+edition = "2021"
+description = "Vectorized expression parser and evaluator"
+license = "MIT OR Apache-2.0"
+repository = "https://github.com/ForesightMiningSoftwareCorporation/vector_expr"
+readme = "../../README.md"
+
+# See more keys and their definitions at https://doc.rust-lang.org/cargo/reference/manifest.html
+
+[lib]
+name = "vector_expr_f64"
+path = "../../src/lib.rs"
+
+[features]
+default = ["f64"]
+f64 = []
+
+[dependencies]
+once_cell = { workspace = true }
+pest = { workspace = true }
+pest_derive = { workspace = true }
+rayon = { workspace = true, optional = true }

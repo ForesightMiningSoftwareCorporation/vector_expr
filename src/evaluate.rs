@@ -1,3 +1,4 @@
+use crate::real::Real;
 use crate::{BoolExpression, RealExpression, StringExpression};
 
 #[cfg(feature = "rayon")]
@@ -10,7 +11,7 @@ pub type StringId = u32;
 
 impl BoolExpression {
     /// Calculates the `bool`-valued results of the expression component-wise.
-    pub fn evaluate<R: AsRef<[f64]>, S: AsRef<[StringId]>>(
+    pub fn evaluate<R: AsRef<[Real]>, S: AsRef<[StringId]>>(
         &self,
         real_bindings: &[R],
         string_bindings: &[S],
@@ -27,7 +28,7 @@ impl BoolExpression {
         )
     }
 
-    fn evaluate_recursive<R: AsRef<[f64]>, S: AsRef<[StringId]>>(
+    fn evaluate_recursive<R: AsRef<[Real]>, S: AsRef<[StringId]>>(
         &self,
         real_bindings: &[R],
         string_bindings: &[S],
@@ -124,21 +125,25 @@ impl BoolExpression {
 }
 
 impl RealExpression {
-    pub fn evaluate_without_vars(&self, registers: &mut Registers) -> Vec<f64> {
+    pub fn evaluate_without_vars(&self, registers: &mut Registers) -> Vec<Real> {
         self.evaluate::<[_; 0]>(&[], registers)
     }
 
     /// Calculates the real-valued results of the expression component-wise.
-    pub fn evaluate<R: AsRef<[f64]>>(&self, bindings: &[R], registers: &mut Registers) -> Vec<f64> {
+    pub fn evaluate<R: AsRef<[Real]>>(
+        &self,
+        bindings: &[R],
+        registers: &mut Registers,
+    ) -> Vec<Real> {
         validate_bindings(bindings, registers.register_length);
         self.evaluate_recursive(bindings, registers)
     }
 
-    fn evaluate_recursive<R: AsRef<[f64]>>(
+    fn evaluate_recursive<R: AsRef<[Real]>>(
         &self,
         bindings: &[R],
         registers: &mut Registers,
-    ) -> Vec<f64> {
+    ) -> Vec<Real> {
         match self {
             Self::Add(lhs, rhs) => evaluate_binary_real_op(
                 |lhs, rhs| lhs + rhs,
@@ -200,13 +205,13 @@ fn validate_bindings<T, B: AsRef<[T]>>(input_bindings: &[B], expected_length: us
     }
 }
 
-fn evaluate_binary_real_op<R: AsRef<[f64]>>(
-    op: fn(f64, f64) -> f64,
+fn evaluate_binary_real_op<R: AsRef<[Real]>>(
+    op: fn(Real, Real) -> Real,
     lhs: &RealExpression,
     rhs: &RealExpression,
     bindings: &[R],
     registers: &mut Registers,
-) -> Vec<f64> {
+) -> Vec<Real> {
     // Before doing recursive evaluation, we check first if we already have
     // input values in our bindings. This avoids unnecessary copies.
     let mut lhs_reg = None;
@@ -254,12 +259,12 @@ fn evaluate_binary_real_op<R: AsRef<[f64]>>(
     output
 }
 
-fn evaluate_unary_real_op<R: AsRef<[f64]>>(
-    op: fn(f64) -> f64,
+fn evaluate_unary_real_op<R: AsRef<[Real]>>(
+    op: fn(Real) -> Real,
     only: &RealExpression,
     bindings: &[R],
     registers: &mut Registers,
-) -> Vec<f64> {
+) -> Vec<Real> {
     // Before doing recursive evaluation, we check first if we already have
     // input values in our bindings. This avoids unnecessary copies.
     let mut only_reg = None;
@@ -287,8 +292,8 @@ fn evaluate_unary_real_op<R: AsRef<[f64]>>(
     output
 }
 
-fn evaluate_real_comparison<R: AsRef<[f64]>>(
-    op: fn(f64, f64) -> bool,
+fn evaluate_real_comparison<R: AsRef<[Real]>>(
+    op: fn(Real, Real) -> bool,
     lhs: &RealExpression,
     rhs: &RealExpression,
     bindings: &[R],
@@ -402,7 +407,7 @@ fn evaluate_string_comparison<S: AsRef<[StringId]>>(
     output
 }
 
-fn evaluate_binary_logic<R: AsRef<[f64]>, S: AsRef<[StringId]>>(
+fn evaluate_binary_logic<R: AsRef<[Real]>, S: AsRef<[StringId]>>(
     op: fn(bool, bool) -> bool,
     lhs: &BoolExpression,
     rhs: &BoolExpression,
@@ -451,7 +456,7 @@ fn evaluate_binary_logic<R: AsRef<[f64]>, S: AsRef<[StringId]>>(
     output
 }
 
-fn evaluate_unary_logic<R: AsRef<[f64]>, S: AsRef<[StringId]>>(
+fn evaluate_unary_logic<R: AsRef<[Real]>, S: AsRef<[StringId]>>(
     op: fn(bool) -> bool,
     only: &BoolExpression,
     real_bindings: &[R],
@@ -489,7 +494,7 @@ fn evaluate_unary_logic<R: AsRef<[f64]>, S: AsRef<[StringId]>>(
 /// calculations have finished.
 pub struct Registers {
     num_allocations: usize,
-    real_registers: Vec<Vec<f64>>,
+    real_registers: Vec<Vec<Real>>,
     bool_registers: Vec<Vec<bool>>,
     string_registers: Vec<Vec<StringId>>,
     register_length: usize,
@@ -506,7 +511,7 @@ impl Registers {
         }
     }
 
-    fn recycle_real(&mut self, mut used: Vec<f64>) {
+    fn recycle_real(&mut self, mut used: Vec<Real>) {
         used.clear();
         self.real_registers.push(used);
     }
@@ -521,7 +526,7 @@ impl Registers {
         self.string_registers.push(used);
     }
 
-    fn allocate_real(&mut self) -> Vec<f64> {
+    fn allocate_real(&mut self) -> Vec<Real> {
         self.real_registers.pop().unwrap_or_else(|| {
             self.num_allocations += 1;
             Vec::with_capacity(self.register_length)
