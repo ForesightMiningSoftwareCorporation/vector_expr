@@ -53,6 +53,10 @@ pub fn empty_binding_map(_var_name: &str) -> BindingId {
     panic!("Empty binding map")
 }
 
+pub trait FloatExt: num_traits::Float + std::str::FromStr + Send + Sync {}
+impl FloatExt for f32 {}
+impl FloatExt for f64 {}
+
 #[cfg(test)]
 mod tests {
     use super::*;
@@ -84,17 +88,17 @@ mod tests {
     fn real_op_precedence() {
         let mut registers = Registers::new(1);
 
-        let parsed = Expression::parse("1 * 2 + 3 * 4", empty_binding_map).unwrap();
+        let parsed = Expression::<f32>::parse("1 * 2 + 3 * 4", empty_binding_map).unwrap();
         let real = parsed.unwrap_real();
         let output = real.evaluate_without_vars(&mut registers);
         assert_eq!(&output, &[14.0]);
 
-        let parsed = Expression::parse("8 / 4 * 3", empty_binding_map).unwrap();
+        let parsed = Expression::<f32>::parse("8 / 4 * 3", empty_binding_map).unwrap();
         let real = parsed.unwrap_real();
         let output = real.evaluate_without_vars(&mut registers);
         assert_eq!(&output, &[6.0]);
 
-        let parsed = Expression::parse("4 ^ 3 ^ 2", empty_binding_map).unwrap();
+        let parsed = Expression::<f32>::parse("4 ^ 3 ^ 2", empty_binding_map).unwrap();
         let real = parsed.unwrap_real();
         let output = real.evaluate_without_vars(&mut registers);
         assert_eq!(&output, &[262144.0]);

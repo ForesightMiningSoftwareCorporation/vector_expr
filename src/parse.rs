@@ -1,11 +1,13 @@
 use crate::expression::{BindingId, BoolExpression, Expression, RealExpression};
 use crate::StringExpression;
+use num_traits::Float;
 use once_cell::sync::Lazy;
 use pest::iterators::Pairs;
 use pest::pratt_parser::{Assoc, Op, PrattParser};
 use pest::Parser;
 use pest_derive::Parser;
 use std::collections::HashSet;
+use std::str::FromStr;
 
 #[derive(Parser)]
 #[grammar = "grammar.pest"] // relative to project `src`
@@ -14,9 +16,9 @@ struct ExpressionParser;
 // Boxed because error is much larger than Ok variant in most results.
 pub type ParseError = Box<pest::error::Error<Rule>>;
 
-impl Expression {
+impl<Real: Float + FromStr> Expression<Real> {
     /// Assume this expression is real-valued.
-    pub fn unwrap_real(self) -> RealExpression {
+    pub fn unwrap_real(self) -> RealExpression<Real> {
         match self {
             Self::Real(r) => r,
             _ => panic!("Expected Real"),
@@ -32,7 +34,7 @@ impl Expression {
     }
 
     /// Assume this expression is boolean-valued.
-    pub fn unwrap_bool(self) -> BoolExpression {
+    pub fn unwrap_bool(self) -> BoolExpression<Real> {
         match self {
             Self::Boolean(b) => b,
             _ => panic!("Expected Boolean"),
@@ -89,7 +91,10 @@ static PRATT_PARSER: Lazy<PrattParser<Rule>> = Lazy::new(|| {
         .op(Op::infix(power, Right))
 });
 
-fn parse_recursive(pairs: Pairs<Rule>, binding_map: &impl Fn(&str) -> BindingId) -> Expression {
+fn parse_recursive<Real: FromStr + Float>(
+    pairs: Pairs<Rule>,
+    binding_map: &impl Fn(&str) -> BindingId,
+) -> Expression<Real> {
     PRATT_PARSER
         .map_primary(|pair| match pair.as_rule() {
             Rule::bool_expr => parse_recursive(pair.into_inner(), binding_map),
@@ -97,7 +102,7 @@ fn parse_recursive(pairs: Pairs<Rule>, binding_map: &impl Fn(&str) -> BindingId)
             Rule::string_expr => parse_recursive(pair.into_inner(), binding_map),
             Rule::real_literal => {
                 let literal_str = pair.as_str();
-                if let Ok(value) = literal_str.parse::<f64>() {
+                if let Ok(value) = literal_str.parse::<Real>() {
                     return Expression::Real(RealExpression::Literal(value));
                 }
                 panic!("Unexpected literal: {}", literal_str)
@@ -210,12 +215,12 @@ mod tests {
 
     #[test]
     fn parse_variable_names() {
-        let vars = Expression::parse_real_variable_names("v1_dest + x + y + z99").unwrap();
+        let vars = Expression::<f32>::parse_real_variable_names("v1_dest + x + y + z99").unwrap();
         assert!(vars.contains("x"), "{vars:?}");
         assert!(vars.contains("y"), "{vars:?}");
         assert!(vars.contains("z99"), "{vars:?}");
         assert!(vars.contains("v1_dest"), "{vars:?}");
-        let vars = Expression::parse_string_variable_names("x == \"W\"").unwrap();
+        let vars = Expression::<f32>::parse_string_variable_names("x == \"W\"").unwrap();
         assert!(vars.contains("x"), "{vars:?}");
     }
 
@@ -228,11 +233,11 @@ mod tests {
                 _ => unreachable!(),
             }
         }
-        Expression::parse("x == y", binding_map).unwrap();
-        Expression::parse("x != y", binding_map).unwrap();
-        Expression::parse("x > y", binding_map).unwrap();
-        Expression::parse("x < y", binding_map).unwrap();
-        Expression::parse("x <= y", binding_map).unwrap();
-        Expression::parse("x >= y", binding_map).unwrap();
+        Expression::<f32>::parse("x == y", binding_map).unwrap();
+        Expression::<f32>::parse("x != y", binding_map).unwrap();
+        Expression::<f32>::parse("x > y", binding_map).unwrap();
+        Expression::<f32>::parse("x < y", binding_map).unwrap();
+        Expression::<f32>::parse("x <= y", binding_map).unwrap();
+        Expression::<f32>::parse("x >= y", binding_map).unwrap();
     }
 }

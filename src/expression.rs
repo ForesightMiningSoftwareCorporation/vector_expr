@@ -1,28 +1,28 @@
 /// Top-level parseable calculation.
 #[derive(Clone, Debug)]
-pub enum Expression {
-    Boolean(BoolExpression),
-    Real(RealExpression),
+pub enum Expression<Real> {
+    Boolean(BoolExpression<Real>),
+    Real(RealExpression<Real>),
     String(StringExpression),
 }
 
 /// A `bool`-valued expression.
 #[derive(Clone, Debug)]
-pub enum BoolExpression {
+pub enum BoolExpression<Real> {
     // Binary logic.
-    And(Box<BoolExpression>, Box<BoolExpression>),
-    Or(Box<BoolExpression>, Box<BoolExpression>),
+    And(Box<BoolExpression<Real>>, Box<BoolExpression<Real>>),
+    Or(Box<BoolExpression<Real>>, Box<BoolExpression<Real>>),
 
     // Unary logic.
-    Not(Box<BoolExpression>),
+    Not(Box<BoolExpression<Real>>),
 
     // Real comparisons.
-    Equal(Box<RealExpression>, Box<RealExpression>),
-    Greater(Box<RealExpression>, Box<RealExpression>),
-    GreaterEqual(Box<RealExpression>, Box<RealExpression>),
-    Less(Box<RealExpression>, Box<RealExpression>),
-    LessEqual(Box<RealExpression>, Box<RealExpression>),
-    NotEqual(Box<RealExpression>, Box<RealExpression>),
+    Equal(Box<RealExpression<Real>>, Box<RealExpression<Real>>),
+    Greater(Box<RealExpression<Real>>, Box<RealExpression<Real>>),
+    GreaterEqual(Box<RealExpression<Real>>, Box<RealExpression<Real>>),
+    Less(Box<RealExpression<Real>>, Box<RealExpression<Real>>),
+    LessEqual(Box<RealExpression<Real>>, Box<RealExpression<Real>>),
+    NotEqual(Box<RealExpression<Real>>, Box<RealExpression<Real>>),
 
     // String comparisons.
     StrEqual(StringExpression, StringExpression),
@@ -31,19 +31,19 @@ pub enum BoolExpression {
 
 /// An `f64`-valued expression.
 #[derive(Clone, Debug)]
-pub enum RealExpression {
+pub enum RealExpression<Real> {
     // Binary real ops.
-    Add(Box<RealExpression>, Box<RealExpression>),
-    Div(Box<RealExpression>, Box<RealExpression>),
-    Mul(Box<RealExpression>, Box<RealExpression>),
-    Pow(Box<RealExpression>, Box<RealExpression>),
-    Sub(Box<RealExpression>, Box<RealExpression>),
+    Add(Box<RealExpression<Real>>, Box<RealExpression<Real>>),
+    Div(Box<RealExpression<Real>>, Box<RealExpression<Real>>),
+    Mul(Box<RealExpression<Real>>, Box<RealExpression<Real>>),
+    Pow(Box<RealExpression<Real>>, Box<RealExpression<Real>>),
+    Sub(Box<RealExpression<Real>>, Box<RealExpression<Real>>),
 
     // Unary real ops.
-    Neg(Box<RealExpression>),
+    Neg(Box<RealExpression<Real>>),
 
     // Constant.
-    Literal(f64),
+    Literal(Real),
 
     // Input variable.
     Binding(BindingId),
