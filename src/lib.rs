@@ -123,7 +123,7 @@ mod tests {
         let bindings = &[bar, baz, foo];
         let mut registers = Registers::new(3);
         let output = bool.evaluate::<_, [_; 0]>(bindings, &[], |_| unreachable!(), &mut registers);
-        assert_eq!(&output, &[false, true, false]);
+        assert_eq!([output[0], output[1], output[2]], [false, true, false]);
         assert_eq!(registers.num_allocations(), 3);
     }
 
@@ -157,7 +157,7 @@ mod tests {
             string_literal_id,
             &mut registers,
         );
-        assert_eq!(&output, &[false, false, true]);
+        assert_eq!([output[0], output[1], output[2]], [false, false, true]);
         assert_eq!(registers.num_allocations(), 5);
     }
 
