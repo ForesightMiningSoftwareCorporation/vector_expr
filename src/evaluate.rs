@@ -560,6 +560,23 @@ impl<Real> Registers<Real> {
         }
     }
 
+    /// Change the register length.
+    ///
+    /// This allows reusing `self` across evaluations even when the register
+    /// length changes.
+    ///
+    /// Allocated registers will be retained only if they have capacity of at
+    /// least `register_length`.
+    pub fn set_register_length(&mut self, register_length: usize) {
+        self.register_length = register_length;
+        self.real_registers
+            .retain(|reg| reg.capacity() >= self.register_length);
+        self.bool_registers
+            .retain(|reg| reg.capacity() >= self.register_length);
+        self.string_registers
+            .retain(|reg| reg.capacity() >= self.register_length);
+    }
+
     fn recycle_real(&mut self, mut used: Vec<Real>) {
         used.clear();
         self.real_registers.push(used);
