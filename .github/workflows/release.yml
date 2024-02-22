@@ -1,20 +1,41 @@
-name: Rust - Continuous Integration
-
+name: CI-CD - Tests and Publishing
 on:
   push:
-    branches: [ main ]
+    branches:
+    - main
+  pull_request: {}
   workflow_dispatch:
-
+    inputs:
+      publish:
+        description: Trigger with publish
+        required: false
+        type: boolean
+concurrency:
+  group: ${{ github.workflow }}-${{ github.head_ref || github.run_id }}
+  cancel-in-progress: true
 jobs:
-  release:
-    uses: ForesightMiningSoftwareCorporation/github/.github/workflows/publish-rust-crate.yml@v1.0.0
+  test_vector-expr:
+    name: 'Test vector_expr: vector-expr'
+    uses: ForesightMiningSoftwareCorporation/github/.github/workflows/rust-test.yml@v2
+    needs: []
+    if: ${{ always() && !contains(needs.*.result, 'failure') && !contains(needs.*.result, 'cancelled') }}
     with:
-      private-registry-host: ssh.shipyard.rs
-      private-registry-name: foresight-mining-software-corporation
-      initial_event_name: ${{ github.event_name }}
-      skip-test: true
-    secrets:
-      github-token: ${{ secrets.GITHUB_TOKEN }}
-      private-registry-private-key: ${{ secrets.CARGO_PRIVATE_REGISTRY_SSH_PRIVATE_KEY }}
-      private-registry-token: ${{ secrets.CARGO_PRIVATE_REGISTRY_TOKEN }}
-      discord-webhook: ${{ secrets.DISCORD_WEBHOOK }}
+      working_directory: .
+      test_publish_required: 'true'
+    secrets: inherit
+  publish_vector-expr:
+    name: 'Publish vector_expr: vector-expr'
+    uses: ForesightMiningSoftwareCorporation/github/.github/workflows/rust-build.yml@v2
+    needs:
+    - test_vector-expr
+    if: ${{ always() && !contains(needs.*.result, 'failure') && !contains(needs.*.result, 'cancelled') && (github.event_name == 'push' || (github.event_name == 'workflow_dispatch' && inputs.publish)) }}
+    with:
+      skip_test: 'false'
+      publish: 'true'
+      publish_private_registry: 'false'
+      publish_public_registry: 'true'
+      publish_docker: 'false'
+      publish_binary: 'false'
+      publish_npm_napi: 'false'
+      working_directory: .
+    secrets: inherit
